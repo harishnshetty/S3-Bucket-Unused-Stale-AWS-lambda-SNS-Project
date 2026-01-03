@@ -23,7 +23,7 @@ Runtime python3.14
 - "s3:DeleteBucket"
 - "sns:Publish"
 
-## IAM ROLE inline policy
+## IAM ROLE permissions
 - CloudWatchFullAccess
 - CloudWatchFullAccessV2
 
