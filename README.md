@@ -30,7 +30,7 @@ Runtime python3.14
 
 
 ### start scheduler
-`00 8 ? JAN-DEC FRI *`
+`00 8 ? JAN-DEC SUN *`
 
 ### Delete the resources
 
