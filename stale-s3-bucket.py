@@ -3,10 +3,10 @@ import json
 import time
 from datetime import datetime, timedelta
 
-SNS_TOPIC_ARN = 'arn:aws:sns:ap-south-1:970378220457:stale-ebs'  # Update as needed
+SNS_TOPIC_ARN = 'arn:aws:sns:ap-south-1:970378220457:stale-s3-topic'  # Update as needed
 REGION = 'ap-south-1'  # Region for SNS and Dashboard placement
 DRY_RUN = False  # Set to True to test without deleting
-NOTIFY_ONLY = False  # Set to True to only notify without deleting
+NOTIFY_ONLY = False # Set to True to only notify without deleting
 # Configuration for S3
 STALE_DAYS_THRESHOLD = 0  # Buckets with objects older than X days
 EMPTY_BUCKETS_ONLY = True  # Only consider empty buckets
@@ -15,7 +15,7 @@ CHECK_OBJECT_LAST_MODIFIED = True  # Check when objects were last modified
 cloudwatch_main = boto3.client('cloudwatch', region_name=REGION)
 sns = boto3.client('sns', region_name=REGION)
 
-def is_bucket_stale(s3_client, bucket_name):
+def is_bucket_stale(s3_client, bucket_name, creation_date=None):
     """Check if a bucket is stale based on criteria"""
     
     # Check if bucket is empty
@@ -25,7 +25,18 @@ def is_bucket_stale(s3_client, bucket_name):
         
         if EMPTY_BUCKETS_ONLY:
             # Only consider empty buckets as stale
-            return 'Contents' not in response or len(response.get('Contents', [])) == 0
+            is_empty = 'Contents' not in response or len(response.get('Contents', [])) == 0
+            if is_empty:
+                if creation_date:
+                    # Check if bucket is old enough
+                    # Ensure creation_date is naive to match datetime.now() or handle timezones consistently
+                    # datetime.now() is naive by default on many systems, but best to be safe if creation_date is aware
+                    c_date = creation_date.replace(tzinfo=None)
+                    days_old = (datetime.now() - c_date).days
+                    if days_old < STALE_DAYS_THRESHOLD:
+                         return False # Bucket is empty but too new
+                return True
+            return False
         
         if CHECK_OBJECT_LAST_MODIFIED and 'Contents' in response:
             # Check last modified date of objects
@@ -63,7 +74,7 @@ def lambda_handler(event, context):
             creation_date = bucket['CreationDate']
             
             # Check if bucket is stale
-            if is_bucket_stale(s3, bucket_name):
+            if is_bucket_stale(s3, bucket_name, creation_date):
                 stale_buckets_global += 1
                 stale_bucket_names_all.append(f"{bucket_name} (Created: {creation_date})")
                 
